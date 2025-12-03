@@ -1,0 +1,697 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Velocity Apex: Prototype</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body { margin: 0; overflow: hidden; background-color: #1a202c; color: white; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+        canvas { display: block; margin: 0 auto; background: #2d3748; box-shadow: 0 0 20px rgba(0,0,0,0.5); }
+        .ui-layer { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; display: flex; flex-direction: column; justify-content: space-between; p-4; }
+        .interactive { pointer-events: auto; }
+        .hidden { display: none !important; }
+        
+        /* Efectos de texto */
+        .neon-text { text-shadow: 0 0 5px #fff, 0 0 10px #fff, 0 0 20px #ff00de, 0 0 30px #ff00de; }
+        .hud-panel { background: rgba(0, 0, 0, 0.7); border: 1px solid #4a5568; padding: 10px; border-radius: 8px; backdrop-filter: blur(4px); }
+        
+        .stat-bar { height: 8px; background: #4a5568; border-radius: 4px; overflow: hidden; margin-top: 4px; }
+        .stat-fill { height: 100%; background: #48bb78; transition: width 0.3s; }
+    </style>
+</head>
+<body>
+
+    <!-- MENÚ PRINCIPAL / GARAJE -->
+    <div id="garageMenu" class="absolute inset-0 z-10 bg-gray-900 flex flex-col items-center justify-center interactive p-4">
+        <h1 class="text-6xl font-black mb-2 italic tracking-tighter text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-pink-600">VELOCITY APEX</h1>
+        <p class="text-gray-400 mb-8">Sistema de Progresión Prototipo v1.0</p>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-8 w-full max-w-4xl">
+            <!-- Panel de Mejoras -->
+            <div class="bg-gray-800 p-6 rounded-xl border border-gray-700 shadow-xl">
+                <h2 class="text-2xl font-bold mb-4 text-yellow-400">🔧 GARAJE & MEJORAS</h2>
+                <div class="text-right mb-4 font-mono text-xl text-green-400">CRÉDITOS: $<span id="playerMoney">0</span></div>
+                
+                <div class="space-y-4">
+                    <div>
+                        <div class="flex justify-between"><span>🏎️ Motor (Velocidad)</span> <span class="text-gray-400">Nvl <span id="engineLevel">1</span></span></div>
+                        <div class="stat-bar"><div id="engineBar" class="stat-fill" style="width: 10%"></div></div>
+                        <button onclick="game.upgrade('engine')" class="mt-1 w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-1 px-2 rounded text-sm transition" id="btnEngine">Mejorar ($500)</button>
+                    </div>
+                    <div>
+                        <div class="flex justify-between"><span>🛞 Neumáticos (Manejo)</span> <span class="text-gray-400">Nvl <span id="handlingLevel">1</span></span></div>
+                        <div class="stat-bar"><div id="handlingBar" class="stat-fill" style="width: 10%"></div></div>
+                        <button onclick="game.upgrade('handling')" class="mt-1 w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-1 px-2 rounded text-sm transition" id="btnHandling">Mejorar ($500)</button>
+                    </div>
+                    <div>
+                        <div class="flex justify-between"><span>🔥 Nitro (Boost)</span> <span class="text-gray-400">Nvl <span id="nitroLevel">0</span></span></div>
+                        <div class="stat-bar"><div id="nitroBar" class="stat-fill" style="width: 0%"></div></div>
+                        <button onclick="game.upgrade('nitro')" class="mt-1 w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-1 px-2 rounded text-sm transition" id="btnNitro">Desbloquear ($1000)</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Selector de Nivel -->
+            <div class="bg-gray-800 p-6 rounded-xl border border-gray-700 shadow-xl">
+                <h2 class="text-2xl font-bold mb-4 text-red-400">🏆 SELECCIÓN DE EVENTO</h2>
+                <div class="space-y-3">
+                    <button onclick="game.selectTier(0)" class="w-full text-left p-3 rounded bg-gray-700 hover:bg-gray-600 border-l-4 border-green-500 transition relative overflow-hidden group">
+                        <div class="font-bold text-lg">Nivel 1: Liga Amateur</div>
+                        <div class="text-xs text-gray-400">IA: Pasiva, Lenta, Rubber-banding activo.</div>
+                        <div class="text-green-300 text-sm mt-1">Premio: $300</div>
+                    </button>
+                    <button onclick="game.selectTier(1)" id="tierBtn1" class="w-full text-left p-3 rounded bg-gray-700 hover:bg-gray-600 border-l-4 border-yellow-500 transition opacity-50 cursor-not-allowed">
+                        <div class="font-bold text-lg">Nivel 2: Club Callejero 🔒</div>
+                        <div class="text-xs text-gray-400">IA: Competitiva, Usa Nitro.</div>
+                        <div class="text-yellow-300 text-sm mt-1">Premio: $800 | Req: Motor Nvl 3</div>
+                    </button>
+                    <button onclick="game.selectTier(2)" id="tierBtn2" class="w-full text-left p-3 rounded bg-gray-700 hover:bg-gray-600 border-l-4 border-red-600 transition opacity-50 cursor-not-allowed">
+                        <div class="font-bold text-lg">Nivel 3: Serie Profesional 🔒</div>
+                        <div class="text-xs text-gray-400">IA: Agresiva, Bloquea, Sin piedad.</div>
+                        <div class="text-red-300 text-sm mt-1">Premio: $2000 | Req: Motor Nvl 6</div>
+                    </button>
+                </div>
+            </div>
+        </div>
+        
+        <div id="messageArea" class="mt-4 text-yellow-400 font-bold h-6"></div>
+    </div>
+
+    <!-- HUD DE CARRERA -->
+    <div id="raceHud" class="ui-layer hidden">
+        <div class="flex justify-between w-full p-4 items-start">
+            <div class="hud-panel">
+                <div class="text-2xl font-bold text-yellow-400"><span id="lapCounter">1</span>/3</div>
+                <div class="text-sm text-gray-300">VUELTA</div>
+            </div>
+            
+            <div class="hud-panel text-center">
+                 <div class="text-4xl font-mono font-black italic text-white"><span id="speedometer">0</span> <span class="text-sm not-italic text-gray-400">KM/H</span></div>
+            </div>
+
+            <div class="hud-panel text-right">
+                <div class="text-xl font-bold text-green-400">POS: <span id="positionDisplay">1</span>/<span id="totalRacers">4</span></div>
+            </div>
+        </div>
+
+        <div class="w-full flex justify-end p-4 items-end">
+            <div class="hud-panel w-64">
+                <div class="flex justify-between text-xs text-blue-300 mb-1"><span>NITRO</span> <span id="nitroText">READY</span></div>
+                <div class="h-4 bg-gray-900 rounded-full overflow-hidden border border-blue-900">
+                    <div id="nitroHudBar" class="h-full bg-blue-500 w-full shadow-[0_0_10px_#3b82f6]"></div>
+                </div>
+                <div class="text-xs text-gray-500 mt-1 text-center">ESPACIO para activar</div>
+            </div>
+        </div>
+        
+        <!-- Cuenta regresiva -->
+        <div id="countdown" class="absolute inset-0 flex items-center justify-center pointer-events-none">
+            <h1 class="text-9xl font-black text-white neon-text scale-0 transition-transform duration-200" id="countdownText">3</h1>
+        </div>
+    </div>
+
+    <!-- PANTALLA POST-CARRERA -->
+    <div id="postRaceMenu" class="absolute inset-0 z-20 bg-black/90 flex flex-col items-center justify-center interactive hidden">
+        <h2 id="resultTitle" class="text-5xl font-black mb-4 text-white">¡VICTORIA!</h2>
+        <div class="bg-gray-800 p-8 rounded-lg text-center border border-gray-600">
+            <p class="text-gray-300 mb-2">Posición final</p>
+            <p id="resultPos" class="text-4xl font-bold text-yellow-400 mb-6">1º</p>
+            <p class="text-gray-300 mb-2">Recompensa</p>
+            <p id="resultMoney" class="text-2xl font-mono text-green-400 mb-6">+$300</p>
+            <button onclick="game.returnToGarage()" class="bg-white text-black font-bold py-3 px-8 rounded hover:bg-gray-200 transition">VOLVER AL GARAJE</button>
+        </div>
+    </div>
+
+    <canvas id="gameCanvas"></canvas>
+
+<script>
+/**
+ * VELOCITY APEX - GAME LOGIC
+ * Single file implementation based on Design Doc
+ */
+
+const canvas = document.getElementById('gameCanvas');
+const ctx = canvas.getContext('2d');
+
+// Game Constants
+const FPS = 60;
+const TRACK_WIDTH = 100;
+const CAR_WIDTH = 12;
+const CAR_LENGTH = 22;
+
+// State
+const STATE = {
+    MENU: 0,
+    RACE: 1,
+    POST_RACE: 2
+};
+
+// Utils
+const dist = (x1, y1, x2, y2) => Math.sqrt((x2-x1)**2 + (y2-y1)**2);
+const lerp = (a, b, t) => a + (b - a) * t;
+
+// --- TRACK DEFINITION (Simple Loop) ---
+const trackPoints = [
+    {x: 100, y: 100}, {x: 400, y: 100}, {x: 700, y: 200}, {x: 900, y: 400},
+    {x: 800, y: 600}, {x: 500, y: 700}, {x: 200, y: 600}, {x: 100, y: 300}
+];
+// Generate smooth path (Catmull-Rom spline approximation for simplicity in drawing/logic)
+// For this prototype, we'll use straight lines with thick rendering for collision detection approximation.
+// Better: Detailed Waypoints
+const waypoints = [];
+for(let i=0; i<trackPoints.length; i++){
+    let p1 = trackPoints[i];
+    let p2 = trackPoints[(i+1)%trackPoints.length];
+    let steps = 20;
+    for(let j=0; j<steps; j++){
+        waypoints.push({
+            x: lerp(p1.x, p2.x, j/steps),
+            y: lerp(p1.y, p2.y, j/steps)
+        });
+    }
+}
+
+class Car {
+    constructor(isPlayer, color, startPos) {
+        this.isPlayer = isPlayer;
+        this.x = startPos.x;
+        this.y = startPos.y;
+        this.angle = 0; // Radians
+        this.speed = 0;
+        this.maxSpeed = 5; // Base, upgraded later
+        this.accel = 0.1;
+        this.friction = 0.96;
+        this.turnSpeed = 0.04; // Handling
+        this.color = color;
+        
+        // AI specific
+        this.currentWp = 0;
+        this.aiOffset = (Math.random() - 0.5) * (TRACK_WIDTH * 0.6); // Lane variance
+        this.aiAggression = 0; // 0 to 1
+        this.aiSkill = 0; // 0 to 1 (affects speed consistency)
+        
+        // Stats
+        this.lap = 0;
+        this.lapDist = 0; // Distance along track
+        this.checkpointsHit = 0;
+        this.finished = false;
+        
+        // Nitro
+        this.hasNitro = false;
+        this.nitroAmt = 100;
+        this.nitroActive = false;
+        this.nitroBoost = 1.5;
+    }
+
+    update(input, dt, cars) {
+        if(this.finished) {
+            this.speed *= 0.9;
+            this.x += Math.cos(this.angle) * this.speed;
+            this.y += Math.sin(this.angle) * this.speed;
+            return;
+        }
+
+        // --- PHYSICS ---
+        // Nitro Logic
+        let topSpeed = this.maxSpeed;
+        if (this.nitroActive && this.nitroAmt > 0) {
+            topSpeed *= this.nitroBoost;
+            this.nitroAmt -= 1; // Drain
+            // Visuals handled in draw
+        } else {
+            this.nitroActive = false;
+            // Regen slowly if not active
+            if(this.nitroAmt < 100) this.nitroAmt += 0.1;
+        }
+
+        if (this.isPlayer) {
+            // Player Control
+            if (input.up) this.speed += this.accel;
+            if (input.down) this.speed -= this.accel;
+            
+            // Turning (only if moving)
+            if (Math.abs(this.speed) > 0.1) {
+                let turnMult = this.speed / this.maxSpeed; // Turn slower at low speeds? Or inverse.
+                // Simple arcade turning
+                if (input.left) this.angle -= this.turnSpeed;
+                if (input.right) this.angle += this.turnSpeed;
+            }
+            
+            // Activate nitro
+            if(input.space && this.hasNitro && this.nitroAmt > 10) {
+                this.nitroActive = true;
+            } else {
+                this.nitroActive = false;
+            }
+
+        } else {
+            // AI Logic
+            // Find target waypoint
+            let target = waypoints[this.currentWp];
+            // Add offset for racing line
+            let tx = target.x + Math.cos(this.angle + Math.PI/2) * this.aiOffset;
+            let ty = target.y + Math.sin(this.angle + Math.PI/2) * this.aiOffset;
+
+            let dx = tx - this.x;
+            let dy = ty - this.y;
+            let distToTarget = Math.sqrt(dx*dx + dy*dy);
+            
+            // Steer towards target
+            let targetAngle = Math.atan2(dy, dx);
+            let diff = targetAngle - this.angle;
+            // Normalize angle
+            while (diff <= -Math.PI) diff += Math.PI*2;
+            while (diff > Math.PI) diff -= Math.PI*2;
+            
+            this.angle += Math.max(-this.turnSpeed, Math.min(this.turnSpeed, diff));
+
+            // AI Speed Management
+            let targetSpeed = topSpeed * this.aiSkill;
+            
+            // Rubber Banding (If easy mode and player is far behind, slow down)
+            if (game.tier === 0 && game.player) {
+                let d = this.lapDist - game.player.lapDist;
+                if (d > 500) targetSpeed *= 0.6; // Wait for player
+            }
+
+            // Aggressive AI (Tier 2+) - Nitro usage
+            if (game.tier >= 1 && distToTarget > 100 && Math.abs(diff) < 0.1) {
+                // Straight line, use nitro occasionally
+                 if(Math.random() < 0.05) this.speed += 0.5; // Artificial burst
+            }
+
+            if (this.speed < targetSpeed) this.speed += this.accel;
+            
+            // Next waypoint
+            if (distToTarget < 60) {
+                this.currentWp = (this.currentWp + 1) % waypoints.length;
+            }
+        }
+
+        // Friction & Physics Application
+        this.speed *= this.friction;
+        this.x += Math.cos(this.angle) * this.speed;
+        this.y += Math.sin(this.angle) * this.speed;
+
+        // --- COLLISIONS ---
+        // 1. Track Boundaries (Simplified: distance from nearest waypoint)
+        // Find nearest point on track center
+        let minDist = 10000;
+        let nearestWpIndex = -1;
+        
+        // Optimization: only check nearby waypoints based on currentWP
+        // For accurate lap calculation we scan all.
+        // For simplicity, we just use a loose check.
+        // Let's iterate all to update lap progress accurately.
+        for(let i=0; i<waypoints.length; i++) {
+            let d = dist(this.x, this.y, waypoints[i].x, waypoints[i].y);
+            if (d < minDist) {
+                minDist = d;
+                nearestWpIndex = i;
+            }
+        }
+
+        // Update Lap Distance
+        // Total distance = (Laps * TotalPoints) + CurrentIndex
+        let totalWps = waypoints.length;
+        // Handle lap crossing logic
+        if (nearestWpIndex < 10 && this.lastWpIndex > totalWps - 10) {
+            this.lap++;
+        }
+        this.lastWpIndex = nearestWpIndex;
+        this.lapDist = (this.lap * totalWps * 10) + (nearestWpIndex * 10); // Approx units
+
+        // Track collision (Simple Circle)
+        if (minDist > TRACK_WIDTH / 2) {
+            // Offroad
+            this.speed *= 0.85; // Slow down drastically
+        }
+    }
+
+    draw() {
+        ctx.save();
+        ctx.translate(this.x, this.y);
+        ctx.rotate(this.angle);
+
+        // Shadow
+        ctx.fillStyle = "rgba(0,0,0,0.5)";
+        ctx.fillRect(-CAR_LENGTH/2 + 2, -CAR_WIDTH/2 + 2, CAR_LENGTH, CAR_WIDTH);
+
+        // Body
+        ctx.fillStyle = this.color;
+        ctx.fillRect(-CAR_LENGTH/2, -CAR_WIDTH/2, CAR_LENGTH, CAR_WIDTH);
+        
+        // Windshield
+        ctx.fillStyle = "#333";
+        ctx.fillRect(-2, -CAR_WIDTH/2 + 2, 6, CAR_WIDTH - 4);
+
+        // Nitro Flame
+        if(this.nitroActive) {
+            ctx.fillStyle = Math.random() > 0.5 ? "#00ffff" : "#ffffff";
+            ctx.beginPath();
+            ctx.moveTo(-CAR_LENGTH/2, 0);
+            ctx.lineTo(-CAR_LENGTH/2 - 10 - Math.random()*5, -3);
+            ctx.lineTo(-CAR_LENGTH/2 - 10 - Math.random()*5, 3);
+            ctx.fill();
+        }
+
+        ctx.restore();
+        
+        // Player Marker
+        if (this.isPlayer) {
+            ctx.fillStyle = "white";
+            ctx.beginPath();
+            ctx.moveTo(this.x, this.y - 20);
+            ctx.lineTo(this.x - 5, this.y - 30);
+            ctx.lineTo(this.x + 5, this.y - 30);
+            ctx.fill();
+        }
+    }
+}
+
+class Game {
+    constructor() {
+        this.money = 0; // Default 0
+        this.upgrades = {
+            engine: 1, // Max Speed + Accel
+            handling: 1, // Turn Speed + Friction
+            nitro: 0 // 0 = locked
+        };
+        
+        this.tier = 0; // Selected Tier
+        this.cars = [];
+        this.player = null;
+        this.currentState = STATE.MENU;
+        
+        this.input = { up: false, down: false, left: false, right: false, space: false };
+        
+        // Listeners
+        window.addEventListener('keydown', (e) => this.handleInput(e, true));
+        window.addEventListener('keyup', (e) => this.handleInput(e, false));
+        window.addEventListener('resize', () => this.resize());
+        
+        this.resize();
+        this.updateUI();
+        this.loop = this.loop.bind(this);
+        requestAnimationFrame(this.loop);
+    }
+
+    resize() {
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
+    }
+
+    handleInput(e, isDown) {
+        if (e.code === 'ArrowUp' || e.code === 'KeyW') this.input.up = isDown;
+        if (e.code === 'ArrowDown' || e.code === 'KeyS') this.input.down = isDown;
+        if (e.code === 'ArrowLeft' || e.code === 'KeyA') this.input.left = isDown;
+        if (e.code === 'ArrowRight' || e.code === 'KeyD') this.input.right = isDown;
+        if (e.code === 'Space') this.input.space = isDown;
+    }
+
+    updateUI() {
+        document.getElementById('playerMoney').innerText = this.money;
+        
+        // Upgrades UI
+        document.getElementById('engineLevel').innerText = this.upgrades.engine;
+        document.getElementById('engineBar').style.width = (this.upgrades.engine * 10) + '%';
+        
+        document.getElementById('handlingLevel').innerText = this.upgrades.handling;
+        document.getElementById('handlingBar').style.width = (this.upgrades.handling * 10) + '%';
+        
+        document.getElementById('nitroLevel').innerText = this.upgrades.nitro > 0 ? "DESBLOQUEADO" : "BLOQUEADO";
+        document.getElementById('nitroBar').style.width = this.upgrades.nitro > 0 ? "100%" : "0%";
+        document.getElementById('btnNitro').innerText = this.upgrades.nitro > 0 ? "INSTALADO" : "Desbloquear ($1000)";
+        if(this.upgrades.nitro > 0) document.getElementById('btnNitro').disabled = true;
+
+        // Tier Locks
+        const tier1Unlocked = this.upgrades.engine >= 3;
+        const tier2Unlocked = this.upgrades.engine >= 6;
+
+        const t1Btn = document.getElementById('tierBtn1');
+        const t2Btn = document.getElementById('tierBtn2');
+
+        if(tier1Unlocked) {
+            t1Btn.classList.remove('opacity-50', 'cursor-not-allowed');
+            t1Btn.innerHTML = t1Btn.innerHTML.replace('🔒', '');
+        }
+        if(tier2Unlocked) {
+            t2Btn.classList.remove('opacity-50', 'cursor-not-allowed');
+            t2Btn.innerHTML = t2Btn.innerHTML.replace('🔒', '');
+        }
+    }
+
+    upgrade(type) {
+        const cost = 500;
+        const nitroCost = 1000;
+        
+        if (type === 'engine' && this.money >= cost && this.upgrades.engine < 10) {
+            this.money -= cost;
+            this.upgrades.engine++;
+        }
+        else if (type === 'handling' && this.money >= cost && this.upgrades.handling < 10) {
+            this.money -= cost;
+            this.upgrades.handling++;
+        }
+        else if (type === 'nitro' && this.money >= nitroCost && this.upgrades.nitro === 0) {
+            this.money -= nitroCost;
+            this.upgrades.nitro = 1;
+        } else {
+             // Shake effect or sound
+             const msg = document.getElementById('messageArea');
+             msg.innerText = "¡Fondos insuficientes o Máximo nivel!";
+             setTimeout(() => msg.innerText = "", 2000);
+             return;
+        }
+        this.updateUI();
+    }
+
+    selectTier(tier) {
+        // Requirements check
+        if(tier === 1 && this.upgrades.engine < 3) return;
+        if(tier === 2 && this.upgrades.engine < 6) return;
+
+        this.tier = tier;
+        this.startRace();
+    }
+
+    startRace() {
+        this.currentState = STATE.RACE;
+        
+        // Hide Menu, Show HUD
+        document.getElementById('garageMenu').classList.add('hidden');
+        document.getElementById('raceHud').classList.remove('hidden');
+        document.getElementById('postRaceMenu').classList.add('hidden');
+
+        // Setup Cars
+        this.cars = [];
+        
+        // Player Setup based on upgrades
+        const pStart = {x: 100, y: 100}; // Starting line
+        this.player = new Car(true, "#ef4444", pStart);
+        // Apply stats
+        this.player.maxSpeed = 5 + (this.upgrades.engine * 0.8);
+        this.player.accel = 0.1 + (this.upgrades.engine * 0.02);
+        this.player.turnSpeed = 0.04 + (this.upgrades.handling * 0.005);
+        this.player.friction = 0.96 + (this.upgrades.handling * 0.002); // Better tires grip more
+        if(this.upgrades.nitro > 0) this.player.hasNitro = true;
+        
+        this.cars.push(this.player);
+
+        // Opponents setup based on Tier
+        let opponentCount = 3 + (this.tier * 2); // 3, 5, 7 opponents
+        let baseAiSpeed = 5 + (this.tier * 2); // 5, 7, 9 base speed
+        
+        for(let i=0; i<opponentCount; i++) {
+            let startOffset = (i+1) * 30;
+            let aiCar = new Car(false, `hsl(${Math.random()*360}, 70%, 50%)`, {x: 100 - startOffset, y: 100});
+            
+            // Tier Logic
+            if(this.tier === 0) { // EASY
+                aiCar.maxSpeed = baseAiSpeed * (0.8 + Math.random()*0.2); // Slow
+                aiCar.aiSkill = 0.8; // Slows down in curves
+            } else if (this.tier === 1) { // MEDIUM
+                aiCar.maxSpeed = baseAiSpeed * (0.9 + Math.random()*0.2);
+                aiCar.aiSkill = 0.9;
+                if(Math.random()>0.5) aiCar.hasNitro = true; // Some have nitro
+            } else { // HARD
+                aiCar.maxSpeed = baseAiSpeed * (1.0 + Math.random()*0.1); // Fast
+                aiCar.aiSkill = 0.98; // Perfect lines
+                aiCar.hasNitro = true;
+                aiCar.accel += 0.05; // Aggressive accel
+            }
+            
+            this.cars.push(aiCar);
+        }
+
+        // Countdown Logic
+        this.raceActive = false;
+        let count = 3;
+        const cdText = document.getElementById('countdownText');
+        cdText.style.transform = "scale(1)";
+        cdText.innerText = count;
+        
+        const timer = setInterval(() => {
+            count--;
+            if(count > 0) {
+                cdText.innerText = count;
+            } else if (count === 0) {
+                cdText.innerText = "GO!";
+                cdText.classList.add('text-green-500');
+                this.raceActive = true;
+            } else {
+                cdText.style.transform = "scale(0)";
+                clearInterval(timer);
+            }
+        }, 1000);
+    }
+
+    endRace(position) {
+        this.raceActive = false;
+        this.currentState = STATE.POST_RACE;
+        
+        let reward = 0;
+        // Reward Logic
+        if(position <= 3) {
+             let baseReward = [300, 800, 2000][this.tier];
+             // 1st: 100%, 2nd: 60%, 3rd: 30%
+             if(position === 1) reward = baseReward;
+             if(position === 2) reward = Math.floor(baseReward * 0.6);
+             if(position === 3) reward = Math.floor(baseReward * 0.3);
+        } else {
+            reward = 50; // Participation award
+        }
+
+        this.money += reward;
+        this.updateUI();
+
+        // Show End Screen
+        document.getElementById('raceHud').classList.add('hidden');
+        document.getElementById('postRaceMenu').classList.remove('hidden');
+        
+        document.getElementById('resultPos').innerText = position + "º";
+        document.getElementById('resultMoney').innerText = "+$" + reward;
+        document.getElementById('resultTitle').innerText = position === 1 ? "¡VICTORIA!" : (position <= 3 ? "¡PODIO!" : "TERMINADO");
+        document.getElementById('resultTitle').className = position <= 3 ? "text-5xl font-black mb-4 text-green-400" : "text-5xl font-black mb-4 text-gray-400";
+    }
+
+    returnToGarage() {
+        this.currentState = STATE.MENU;
+        document.getElementById('postRaceMenu').classList.add('hidden');
+        document.getElementById('garageMenu').classList.remove('hidden');
+    }
+
+    loop() {
+        // Clear
+        ctx.fillStyle = "#2d3748";
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+        if (this.currentState === STATE.RACE || this.currentState === STATE.POST_RACE) {
+            
+            // Camera Logic (Follow Player)
+            let camX = 0, camY = 0;
+            if(this.player) {
+                camX = canvas.width/2 - this.player.x;
+                camY = canvas.height/2 - this.player.y;
+            }
+
+            ctx.save();
+            ctx.translate(camX, camY);
+
+            // Draw Track
+            ctx.lineCap = "round";
+            ctx.lineJoin = "round";
+            
+            // Grass/Offroad borders
+            ctx.strokeStyle = "#1a202c"; // Darker background for contrast
+            ctx.lineWidth = TRACK_WIDTH + 20;
+            ctx.beginPath();
+            ctx.moveTo(waypoints[0].x, waypoints[0].y);
+            for(let p of waypoints) ctx.lineTo(p.x, p.y);
+            ctx.closePath();
+            ctx.stroke();
+
+            // Asphalt
+            ctx.strokeStyle = "#4a5568"; // Road Color
+            ctx.lineWidth = TRACK_WIDTH;
+            ctx.beginPath();
+            ctx.moveTo(waypoints[0].x, waypoints[0].y);
+            for(let p of waypoints) ctx.lineTo(p.x, p.y);
+            ctx.closePath();
+            ctx.stroke();
+
+            // Center Line
+            ctx.strokeStyle = "rgba(255,255,255,0.3)";
+            ctx.lineWidth = 2;
+            ctx.setLineDash([20, 20]);
+            ctx.beginPath();
+            ctx.moveTo(waypoints[0].x, waypoints[0].y);
+            for(let p of waypoints) ctx.lineTo(p.x, p.y);
+            ctx.closePath();
+            ctx.stroke();
+            ctx.setLineDash([]);
+
+            // Start Line
+            ctx.save();
+            ctx.translate(waypoints[0].x, waypoints[0].y);
+            ctx.fillStyle = "#fff";
+            ctx.fillRect(-10, -TRACK_WIDTH/2, 20, TRACK_WIDTH);
+            // Checker pattern
+            ctx.fillStyle = "#000";
+            for(let i=0; i<5; i++) {
+                ctx.fillRect(-10, -TRACK_WIDTH/2 + i*20, 10, 10);
+                ctx.fillRect(0, -TRACK_WIDTH/2 + 10 + i*20, 10, 10);
+            }
+            ctx.restore();
+
+            // Update & Draw Cars
+            // Sort by Y for simple depth sorting
+            // this.cars.sort((a,b) => a.y - b.y); // Optional for 2D top down but nice
+
+            // Race Rank Calculation
+            let rank = 1;
+            for(let c of this.cars) {
+                if(c !== this.player) {
+                    if(c.lapDist > this.player.lapDist) rank++;
+                }
+            }
+            
+            // HUD Update
+            if(this.raceActive) {
+                document.getElementById('speedometer').innerText = Math.floor(this.player.speed * 20); // Fake Scale
+                document.getElementById('positionDisplay').innerText = rank;
+                document.getElementById('totalRacers').innerText = this.cars.length;
+                document.getElementById('lapCounter').innerText = Math.min(this.player.lap + 1, 3);
+                
+                // Nitro Bar
+                if(this.player.hasNitro) {
+                    document.getElementById('nitroHudBar').style.width = this.player.nitroAmt + "%";
+                }
+            }
+
+            // Physics Update Loop
+            for (let car of this.cars) {
+                if(this.raceActive) car.update(this.input, 1, this.cars);
+                car.draw();
+            }
+
+            ctx.restore();
+
+            // Check Win Condition
+            if(this.player.lap >= 3 && !this.player.finished) {
+                this.player.finished = true;
+                this.endRace(rank);
+            }
+        }
+
+        requestAnimationFrame(this.loop);
+    }
+}
+
+// Start Game
+const game = new Game();
+
+</script>
+</body>
+</html>
